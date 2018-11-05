@@ -42,7 +42,7 @@ from random import randint
 
 data_path = 'data/'
 
-train_batch_size = 20
+train_batch_size = 50
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -165,7 +165,7 @@ def csv_file_to_list():
 
 # returns x_batch, y_truth
 def sample_data(dict):
-	data_pts = random.sample(range(1, 1000), 20)
+	data_pts = random.sample(range(1, 2020), 50)
 	img_arr = []
 	y_arr = []
 	count = 0
