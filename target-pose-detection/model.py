@@ -29,7 +29,7 @@ robot_config =
 '''
 
 import tensorflow as tf
-from tensorflow.losses import Reduction
+# from tensorflow.losses import Reduction
 from PIL import Image
 from numpy import array
 from numpy import ndarray
@@ -42,7 +42,7 @@ from random import randint
 
 data_path = 'data/'
 
-train_batch_size = 50
+train_batch_size = 1
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -165,7 +165,7 @@ def csv_file_to_list():
 
 # returns x_batch, y_truth
 def sample_data(dict):
-	data_pts = random.sample(range(1, 2020), 50)
+	data_pts = random.sample(range(1, 2020), 1)
 	img_arr = []
 	y_arr = []
 	count = 0
@@ -248,7 +248,8 @@ layer_fc1 = new_fc_layer(input=feature_keypoints,
 y_true = tf.placeholder(tf.float32, shape=[train_batch_size, 64], name='y_true')
 
 # cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=feature_keypoints, labels=y_true))
-# cost = tf.reduce_mean(tf.squared_difference(y_true, feature_keypoints))
+cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc1))
+'''
 cost = tf.losses.mean_squared_error(y_true,
 								    layer_fc1,
 								    weights=1.0,
@@ -256,6 +257,7 @@ cost = tf.losses.mean_squared_error(y_true,
 								    loss_collection=tf.GraphKeys.LOSSES,
 								    reduction=Reduction.SUM_BY_NONZERO_WEIGHTS
 								)
+'''
 optimizer = tf.train.AdamOptimizer(learning_rate=1e-2).minimize(cost)
 
 correct_predictions = tf.equal(layer_fc1, y_true)
@@ -266,8 +268,8 @@ saver = tf.train.Saver()
 
 sess = tf.Session()
 
-sess.run(tf.global_variables_initializer())
-# saver.restore(sess, "models/model.ckpt")
+# sess.run(tf.global_variables_initializer())
+saver.restore(sess, "models/model.ckpt")
 
 
 dictionary = csv_file_to_list()
@@ -279,15 +281,15 @@ def optimize(num_iterations):
 	for i in range(total_iterations, total_iterations + num_iterations):
 		x_batch, y_true_batch = sample_data(dictionary)
 		feed_dict_train = {x: x_batch, y_true: y_true_batch}
-		o, fc = sess.run([optimizer,layer_fc1], feed_dict=feed_dict_train)
-		# print fc, y_true_batch 
-		# return
+		fc = sess.run([layer_fc1], feed_dict=feed_dict_train)
+		print (fc, y_true_batch) 
+		return
 		# print status after every 100 iterations
 		if i % 50 == 0:
 			save_path = saver.save(sess, "models/model.ckpt")
 			acc = sess.run(accuracy, feed_dict=feed_dict_train)
 			cos = sess.run(cost, feed_dict=feed_dict_train)
-			print "cost :", cos
+			print ("cost :", cos)
 
 	total_iterations += num_iterations
 
