@@ -12,7 +12,7 @@ from random import randint
 
 data_path = 'data/'
 
-train_batch_size = 50
+train_batch_size = 20
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -107,16 +107,22 @@ def new_fc_layer(input, num_inputs, num_outputs, use_relu=True):
 	return layer
 
 
-def create_true_y_array(dictionary, pt):
-	cube_pose_x = dictionary['cube_pose_x'][pt]
-	cube_pose_y = dictionary['cube_pose_y'][pt]
-	list_y = []
-	for i in range(0, 64, 2):
-		list_y.append(cube_pose_x)
-		list_y.append(cube_pose_y)
+def create_arrays(dictionary, pt):
+	# cube_pose_x = dictionary['cube_pose_x'][pt]
+	# cube_pose_y = dictionary['cube_pose_y'][pt]
+	# list_y = []
+	# for i in range(0, 64, 2):
+	# 	list_y.append(cube_pose_x)
+	# 	list_y.append(cube_pose_y)
+	y = []
 
+	r_config = []
 
-	return array(list_y)
+	for i in range(0, 7):
+		r_config.append(dictionary['right_j'+str(i)][pt])
+		y.append(dictionary['right_j'+str(i)+'_next'][pt])
+
+	return array(y), array(r_config)
 
 # returns a dictionary from a csv file
 def csv_file_to_list():
@@ -135,9 +141,10 @@ def csv_file_to_list():
 
 # returns x_batch, y_truth
 def sample_data(dict):
-	data_pts = random.sample(range(1, 2020), 50)
+	data_pts = random.sample(range(1, 1200), 20)
 	img_arr = []
 	y_arr = []
+	robot_config_arr = []
 	count = 0
 	for pt in data_pts:
 
@@ -145,16 +152,20 @@ def sample_data(dict):
 			# read an image 
 			img = Image.open("data/"+str(pt)+".jpeg")
 			img_arr.append(array(img))
-			y_arr.append(array(create_true_y_array(dictionary, pt)))
+			y, r_config = create_arrays(dictionary, pt)
+			y_arr.append(y)
+			robot_config_arr.append(r_config)
 			count = 1
 			continue 
 
 		# read an image 
 		img = Image.open("data/"+str(pt)+".jpeg")
 		img_arr.append(array(img))
-		y_arr.append(create_true_y_array(dictionary, pt))
+		y, r_config = create_arrays(dictionary, pt)
+		y_arr.append(y)
+		robot_config_arr.append(r_config)
 
-	return img_arr, y_arr, img
+	return img_arr, y_arr, robot_config_arr
 
 def plotter(prediction, input_img):
 	list_val =  prediction[0][0]
@@ -181,7 +192,7 @@ def plotter(prediction, input_img):
 
 
 x = tf.placeholder(tf.float32, shape=[train_batch_size, img_size, img_size, num_channels], name='x')
-robot_config = tf.placeholder(tf.float32, shape=[None, number_robot_config], name='robot_config')
+robot_config = tf.placeholder(tf.float32, shape=[train_batch_size, number_robot_config], name='robot_config')
 # conv layers require image to be in shape [num_images, img_height, img_weight, num_channels]
 x_image = tf.reshape(x, [-1, img_size, img_size, num_channels])
 
@@ -217,32 +228,33 @@ feature_keypoints = tf.contrib.layers.spatial_softmax(layer_conv3,
     										trainable=True,
     										data_format='NHWC')
 
-# features_with_robot_config = tf.concat([feature_keypoints, robot_config], -1)
+features_with_robot_config = tf.concat([feature_keypoints, robot_config], -1)
 
 
 # fully connected layer 1
-# layer_fc1 = new_fc_layer(input=features_with_robot_config,
-# 						num_inputs=number_features+number_robot_config,
-# 						num_outputs=fc_size,
-# 						use_relu=True)
+layer_fc1 = new_fc_layer(input=features_with_robot_config,
+						num_inputs=number_features+number_robot_config,
+						num_outputs=fc_size,
+						use_relu=True)
 
-# # fully connected layer 2
-# layer_fc2 = new_fc_layer(input=layer_fc1,
-# 						num_inputs=fc_size,
-# 						num_outputs=number_out,
-# 						use_relu=True)
+# fully connected layer 2
+layer_fc2 = new_fc_layer(input=layer_fc1,
+						num_inputs=fc_size,
+						num_outputs=fc_size,
+						use_relu=True)
 
-layer_fc1 = new_fc_layer(input=feature_keypoints,
-						num_inputs=number_features,
-						num_outputs=64,
-						use_relu=False)
+# fully connected layer 3
+layer_fc3 = new_fc_layer(input=layer_fc2,
+						num_inputs=fc_size,
+						num_outputs=number_out,
+						use_relu=True)
 
 
 # y_truth
-y_true = tf.placeholder(tf.float32, shape=[train_batch_size, 64], name='y_true')
+y_true = tf.placeholder(tf.float32, shape=[train_batch_size, number_out], name='y_true')
 
 # cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=feature_keypoints, labels=y_true))
-cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc1))
+cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc3))
 '''
 cost = tf.losses.mean_squared_error(y_true,
 								    layer_fc1,
@@ -254,16 +266,13 @@ cost = tf.losses.mean_squared_error(y_true,
 '''
 optimizer = tf.train.AdamOptimizer(learning_rate=1e-2).minimize(cost)
 
-correct_predictions = tf.equal(layer_fc1, y_true)
-accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32))
-
 saver = tf.train.Saver()
 
 
 sess = tf.Session()
 
-# sess.run(tf.global_variables_initializer())
-saver.restore(sess, "models/model.ckpt")
+sess.run(tf.global_variables_initializer())
+# saver.restore(sess, "models/model.ckpt")
 
 
 dictionary = csv_file_to_list()
@@ -273,13 +282,11 @@ def optimize(num_iterations):
 	global total_iterations
 	start_time = time.time()
 	for i in range(total_iterations, total_iterations + num_iterations):
-		x_batch, y_true_batch, img = sample_data(dictionary)
-		feed_dict_train = {x: x_batch, y_true: y_true_batch}
-		fc = sess.run([layer_fc1], feed_dict=feed_dict_train)
-		# print (fc, y_true_batch)
-		# plotter(fc, img)
-		# return
-		# print status after every 100 iterations
+		x_batch, y_true_batch, robot_config_ = sample_data(dictionary)
+		feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_}
+		o, fc = sess.run([otimizer, layer_fc3], feed_dict=feed_dict_train)
+
+		# print status after every 50 iterations
 		if i % 50 == 0:
 			save_path = saver.save(sess, "models/model.ckpt")
 			acc = sess.run(accuracy, feed_dict=feed_dict_train)
