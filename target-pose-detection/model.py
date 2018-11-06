@@ -1,39 +1,9 @@
-'''
-[[-9.9498749e-01  9.9500370e-01  2.9512200e-01  9.5897859e-01
-   1.6487867e-01  9.8282254e-01  7.7839756e-01 -8.4554803e-01
-  -9.2326492e-01  9.2326117e-01  5.6504276e-02  3.6453849e-01
-   9.9226958e-01  7.7679586e-01  9.8332721e-01  8.3029008e-01
-   6.7962760e-01 -5.0879091e-01  8.0734082e-02  3.1335104e-01
-  -8.5496765e-01 -8.6031860e-01  8.8034433e-01 -2.0021659e-01
-   9.8930991e-01  9.4566905e-01 -9.8997486e-01  9.7342521e-01
-  -8.5938203e-01  9.1553599e-01  9.7813070e-02 -9.9418956e-01
-   2.3370929e-01  5.3301430e-01 -9.2173524e-02 -9.6556145e-01
-   6.1789501e-02  3.9005482e-01  2.3536563e-01  7.9031640e-01
-   1.4077574e-01  2.5366151e-01 -9.9999952e-01  1.8213619e-04
-  -9.5057197e-02 -1.0000010e+00  1.1603745e-01  9.9683195e-01
-  -9.9851120e-01 -7.9045457e-01  9.7150081e-01  3.6361593e-01
-   9.7797704e-01 -5.6274092e-01 -9.7238725e-01  9.8190796e-01
-   4.4537785e-05 -7.5376593e-06 -9.6490723e-01  8.6958498e-01
-   5.3527409e-01 -3.6000326e-02  9.7591239e-01  9.9857712e-01]]
-
-robot_config = 
-
-[-0.7163434229	
--1.048085536	
-0.7940572682	
-2.9145453115	
-1.1799879494	
--0.3952533917	
-1.9949735534]	
-
-'''
-
 import tensorflow as tf
-# from tensorflow.losses import Reduction
 from PIL import Image
 from numpy import array
 from numpy import ndarray
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 import numpy as np
 import random
 import csv
@@ -42,7 +12,7 @@ from random import randint
 
 data_path = 'data/'
 
-train_batch_size = 1
+train_batch_size = 50
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -165,7 +135,7 @@ def csv_file_to_list():
 
 # returns x_batch, y_truth
 def sample_data(dict):
-	data_pts = random.sample(range(1, 2020), 1)
+	data_pts = random.sample(range(1, 2020), 50)
 	img_arr = []
 	y_arr = []
 	count = 0
@@ -184,7 +154,31 @@ def sample_data(dict):
 		img_arr.append(array(img))
 		y_arr.append(create_true_y_array(dictionary, pt))
 
-	return img_arr, y_arr
+	return img_arr, y_arr, img
+
+def plotter(prediction, input_img):
+	list_val =  prediction[0][0]
+	x_s = []
+	y_s = []
+	for i in range(0, len(list_val), 2):
+		x_s.append(list_val[i])
+		y_s.append(list_val[i+1])
+
+	arr_img = array(input_img)
+	# print x_s, y_s
+	plt.figure(1)
+	plt.subplot(2, 1, 1)
+	plt.imshow(arr_img)
+
+	plt.figure(2)
+	# plt.subplot(2, 1, 2)
+	plt.plot(y_s, x_s, 'ro')
+	plt.axis([0, 0.9135, 0, 0.9135])
+	plt.show()
+
+
+
+
 
 x = tf.placeholder(tf.float32, shape=[train_batch_size, img_size, img_size, num_channels], name='x')
 robot_config = tf.placeholder(tf.float32, shape=[None, number_robot_config], name='robot_config')
@@ -279,11 +273,12 @@ def optimize(num_iterations):
 	global total_iterations
 	start_time = time.time()
 	for i in range(total_iterations, total_iterations + num_iterations):
-		x_batch, y_true_batch = sample_data(dictionary)
+		x_batch, y_true_batch, img = sample_data(dictionary)
 		feed_dict_train = {x: x_batch, y_true: y_true_batch}
 		fc = sess.run([layer_fc1], feed_dict=feed_dict_train)
-		print (fc, y_true_batch) 
-		return
+		# print (fc, y_true_batch)
+		# plotter(fc, img)
+		# return
 		# print status after every 100 iterations
 		if i % 50 == 0:
 			save_path = saver.save(sess, "models/model.ckpt")
@@ -299,29 +294,4 @@ def optimize(num_iterations):
 
 
 optimize(10000)
-# read an image 
-# img = Image.open("image1.jpeg")
-# arr1 = array(img)
-# # read an image 
-# img = Image.open("image2.jpeg")
-# arr2 = array(img)
-
-# list_img = []
-# list_img.append(arr1)
-# list_img.append(arr2)
-
-# # arr = np.concatenate((arr1, arr2))
-# # arr = np.concatenate((arr, arr1))
-
-# print list_img
-
-# print arr1 , '\n'
-# print arr2 , '\n'
-# print sess.run(feature_keypoints, feed_dict={x: arr.reshape(2, -1)})
-
-# feature1 = list(features[0])
-# _robot_config = [[-0.7163434229, -1.048085536, 0.7940572682, 2.9145453115, 1.1799879494, -0.3952533917, 1.9949735534]]
-
-
-# print (sess.run(layer_fc2, feed_dict={x: arr.reshape(1, -1), robot_config: _robot_config}))
 
