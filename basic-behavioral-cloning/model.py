@@ -12,7 +12,7 @@ from random import randint
 
 data_path = 'data/'
 
-train_batch_size = 20
+train_batch_size =  64
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -141,7 +141,7 @@ def csv_file_to_list():
 
 # returns x_batch, y_truth
 def sample_data(dict):
-	data_pts = random.sample(range(1, 1200), 20)
+	data_pts = random.sample(range(1, 1200), 64)
 	img_arr = []
 	y_arr = []
 	robot_config_arr = []
@@ -247,14 +247,14 @@ layer_fc2 = new_fc_layer(input=layer_fc1,
 layer_fc3 = new_fc_layer(input=layer_fc2,
 						num_inputs=fc_size,
 						num_outputs=number_out,
-						use_relu=True)
+						use_relu=False)
 
 
 # y_truth
 y_true = tf.placeholder(tf.float32, shape=[train_batch_size, number_out], name='y_true')
 
 # cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=feature_keypoints, labels=y_true))
-cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc3))
+cost = tf.sqrt(tf.reduce_mean(tf.squared_difference(y_true, layer_fc3)))
 '''
 cost = tf.losses.mean_squared_error(y_true,
 								    layer_fc1,
@@ -264,15 +264,15 @@ cost = tf.losses.mean_squared_error(y_true,
 								    reduction=Reduction.SUM_BY_NONZERO_WEIGHTS
 								)
 '''
-optimizer = tf.train.AdamOptimizer(learning_rate=1e-2).minimize(cost)
+optimizer = tf.train.AdamOptimizer(learning_rate=0.002).minimize(cost)
 
 saver = tf.train.Saver()
 
 
 sess = tf.Session()
 
-sess.run(tf.global_variables_initializer())
-# saver.restore(sess, "models/model.ckpt")
+# sess.run(tf.global_variables_initializer())
+saver.restore(sess, "models/model.ckpt")
 
 
 dictionary = csv_file_to_list()
@@ -285,7 +285,8 @@ def optimize(num_iterations):
 		x_batch, y_true_batch, robot_config_ = sample_data(dictionary)
 		feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_}
 		o, fc = sess.run([optimizer, layer_fc3], feed_dict=feed_dict_train)
-
+		# print (fc, y_true_batch)
+		# return 
 		# print status after every 50 iterations
 		if i % 50 == 0:
 			save_path = saver.save(sess, "models/model.ckpt")
@@ -299,5 +300,5 @@ def optimize(num_iterations):
 	time_diff = end_time - start_time
 
 
-optimize(10000)
+optimize(500000)
 
