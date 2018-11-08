@@ -141,7 +141,7 @@ def csv_file_to_list():
 
 # returns x_batch, y_truth
 def sample_data(dict):
-	data_pts = random.sample(range(1, 1200), 64)
+	data_pts = random.sample(range(1, 5863), 64)
 	img_arr = []
 	y_arr = []
 	robot_config_arr = []
@@ -254,7 +254,8 @@ layer_fc3 = new_fc_layer(input=layer_fc2,
 y_true = tf.placeholder(tf.float32, shape=[train_batch_size, number_out], name='y_true')
 
 # cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=feature_keypoints, labels=y_true))
-cost = tf.sqrt(tf.reduce_mean(tf.squared_difference(y_true, layer_fc3)))
+# cost = tf.sqrt(tf.reduce_mean(tf.squared_difference(y_true, layer_fc3)))
+cost = tf.sqrt(tf.losses.mean_squared_error(layer_fc3, y_true))
 '''
 cost = tf.losses.mean_squared_error(y_true,
 								    layer_fc1,
@@ -264,7 +265,7 @@ cost = tf.losses.mean_squared_error(y_true,
 								    reduction=Reduction.SUM_BY_NONZERO_WEIGHTS
 								)
 '''
-optimizer = tf.train.AdamOptimizer(learning_rate=0.002).minimize(cost)
+optimizer = tf.train.AdamOptimizer(learning_rate=0.02).minimize(cost)
 
 saver = tf.train.Saver()
 
@@ -288,7 +289,7 @@ def optimize(num_iterations):
 		# print (fc, y_true_batch)
 		# return 
 		# print status after every 50 iterations
-		if i % 50 == 0:
+		if i % 100 == 0:
 			save_path = saver.save(sess, "models/model.ckpt")
 			cos = sess.run(cost, feed_dict=feed_dict_train)
 			print ("cost :", cos)
