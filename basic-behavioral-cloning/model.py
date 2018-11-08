@@ -41,7 +41,7 @@ stride3 = 1
 number_features = 64
 number_robot_config = 7
 fc_size = 40
-number_out = 7
+number_out = 3 # eef pose x, y, z
 
 
 counter = 0
@@ -122,7 +122,10 @@ def create_arrays(dictionary, pt):
 
 	for i in range(0, 7):
 		r_config.append(dictionary['right_j'+str(i)][pt])
-		y.append(dictionary['right_j'+str(i)+'_next'][pt])
+		# y.append(dictionary['right_j'+str(i)+'_next'][pt])
+	y.append(dictionary['eef_pose_x'])
+	y.append(dictionary['eef_pose_y'])
+	y.append(dictionary['eef_pose_z'])
 
 	return array(y), array(r_config)
 
