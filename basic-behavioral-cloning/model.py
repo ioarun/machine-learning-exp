@@ -43,6 +43,8 @@ number_robot_config = 7
 fc_size = 40
 number_out = 7
 
+
+counter = 0
 # tensorflow computation graph begins
 
 # helper functions for creating new weights and biases
@@ -140,8 +142,18 @@ def csv_file_to_list():
 	return data
 
 # returns x_batch, y_truth
-def sample_data(dict):
-	data_pts = random.sample(range(1, 5863), 64)
+def sample_data(dict, counter):
+	# data_pts = random.sample(range(1, 5863), 64)
+	if counter >= 5800:
+		counter = 0
+	data_pts = []
+	for i in range(counter, counter+train_batch_size):
+		data_pts.append(i)
+	
+	counter += 63
+	# print (data_pts)
+	random.shuffle(data_pts)
+	
 	img_arr = []
 	y_arr = []
 	robot_config_arr = []
@@ -165,7 +177,7 @@ def sample_data(dict):
 		y_arr.append(y)
 		robot_config_arr.append(r_config)
 
-	return img_arr, y_arr, robot_config_arr
+	return img_arr, y_arr, robot_config_arr, counter
 
 def plotter(prediction, input_img):
 	list_val =  prediction[0][0]
@@ -278,12 +290,16 @@ saver.restore(sess, "models/model.ckpt")
 
 dictionary = csv_file_to_list()
 
+ctr = 0
+
 
 def optimize(num_iterations):
 	global total_iterations
+	global ctr
 	start_time = time.time()
 	for i in range(total_iterations, total_iterations + num_iterations):
-		x_batch, y_true_batch, robot_config_ = sample_data(dictionary)
+		counter = ctr
+		x_batch, y_true_batch, robot_config_, ctr = sample_data(dictionary, counter)
 		feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_}
 		o, fc = sess.run([optimizer, layer_fc3], feed_dict=feed_dict_train)
 		# print (fc, y_true_batch)
