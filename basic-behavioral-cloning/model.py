@@ -12,7 +12,7 @@ from random import randint
 
 data_path = 'data/'
 
-train_batch_size =  64
+train_batch_size = 64
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -43,6 +43,7 @@ number_robot_config = 7
 fc_size = 40
 number_out = 3 # eef pose x, y, z
 
+beta = 0.01
 
 counter = 0
 # tensorflow computation graph begins
@@ -106,7 +107,7 @@ def new_fc_layer(input, num_inputs, num_outputs, use_relu=True):
 	if use_relu:
 		layer = tf.nn.relu(layer)
 	
-	return layer
+	return layer, weights
 
 
 def create_arrays(dictionary, pt):
@@ -123,9 +124,9 @@ def create_arrays(dictionary, pt):
 	for i in range(0, 7):
 		r_config.append(dictionary['right_j'+str(i)][pt])
 		# y.append(dictionary['right_j'+str(i)+'_next'][pt])
-	y.append(dictionary['eef_pose_x'])
-	y.append(dictionary['eef_pose_y'])
-	y.append(dictionary['eef_pose_z'])
+	y.append(dictionary['eef_pose_x'][pt])
+	y.append(dictionary['eef_pose_y'][pt])
+	y.append(dictionary['eef_pose_z'][pt])
 
 	return array(y), array(r_config)
 
@@ -145,29 +146,32 @@ def csv_file_to_list():
 	return data
 
 # returns x_batch, y_truth
-def sample_data(dict, counter):
-	# data_pts = random.sample(range(1, 5863), 64)
+def sample_data(dict_, counter, data_pts):
+	done = False
+	# data_pts = random.sample(range(0, 5864), 5864)
+	
 	if counter >= 5800:
 		counter = 0
-	data_pts = []
+		done = True
+		data_pts = random.sample(range(0, 5864), 5864)
+	data_pts_ = []
 	for i in range(counter, counter+train_batch_size):
-		data_pts.append(i)
-	
+		data_pts_.append(data_pts[i])
+	random.shuffle(data_pts_)
 	counter += 63
 	# print (data_pts)
-	random.shuffle(data_pts)
-	
+	# random.shuffle(data_pts)
+	# print (counter)	
 	img_arr = []
 	y_arr = []
 	robot_config_arr = []
 	count = 0
-	for pt in data_pts:
-
+	for pt in data_pts_:
 		if count == 0:
 			# read an image 
 			img = Image.open("data/"+str(pt)+".jpeg")
 			img_arr.append(array(img))
-			y, r_config = create_arrays(dictionary, pt)
+			y, r_config = create_arrays(dict_, pt)
 			y_arr.append(y)
 			robot_config_arr.append(r_config)
 			count = 1
@@ -176,11 +180,11 @@ def sample_data(dict, counter):
 		# read an image 
 		img = Image.open("data/"+str(pt)+".jpeg")
 		img_arr.append(array(img))
-		y, r_config = create_arrays(dictionary, pt)
+		y, r_config = create_arrays(dict_, pt)
 		y_arr.append(y)
 		robot_config_arr.append(r_config)
 
-	return img_arr, y_arr, robot_config_arr, counter
+	return img_arr, y_arr, robot_config_arr, counter, done, data_pts
 
 def plotter(prediction, input_img):
 	list_val =  prediction[0][0]
@@ -212,6 +216,7 @@ robot_config = tf.placeholder(tf.float32, shape=[train_batch_size, number_robot_
 x_image = tf.reshape(x, [-1, img_size, img_size, num_channels])
 
 
+'''
 # conv layer 1
 layer_conv1, weights_conv1 = new_conv_layer(input=x_image,
 											num_input_channels=num_channels,
@@ -235,6 +240,12 @@ layer_conv3, weights_conv3 = new_conv_layer(input=layer_conv2,
 											stride=stride3,
 											use_pooling=False)
 
+'''
+regularizer = tf.contrib.layers.l2_regularizer(scale=0.1)
+
+layer_conv1 = tf.layers.conv2d(x_image, 32, 7, strides=2, padding="same", kernel_regularizer=regularizer)
+layer_conv2 = tf.layers.conv2d(layer_conv1, 32, 5, strides=1, padding="same", kernel_regularizer=regularizer)
+layer_conv3 = tf.layers.conv2d(layer_conv2, 32, 5, strides=1, padding="same", kernel_regularizer=regularizer)
 # spatial softmax layer
 feature_keypoints = tf.contrib.layers.spatial_softmax(layer_conv3,
 											temperature=None,
@@ -247,19 +258,19 @@ features_with_robot_config = tf.concat([feature_keypoints, robot_config], -1)
 
 
 # fully connected layer 1
-layer_fc1 = new_fc_layer(input=features_with_robot_config,
+layer_fc1, fc1_weights = new_fc_layer(input=features_with_robot_config,
 						num_inputs=number_features+number_robot_config,
 						num_outputs=fc_size,
 						use_relu=True)
 
 # fully connected layer 2
-layer_fc2 = new_fc_layer(input=layer_fc1,
+layer_fc2, fc2_weights = new_fc_layer(input=layer_fc1,
 						num_inputs=fc_size,
 						num_outputs=fc_size,
 						use_relu=True)
 
 # fully connected layer 3
-layer_fc3 = new_fc_layer(input=layer_fc2,
+layer_fc3, fc3_weights = new_fc_layer(input=layer_fc2,
 						num_inputs=fc_size,
 						num_outputs=number_out,
 						use_relu=False)
@@ -269,8 +280,15 @@ layer_fc3 = new_fc_layer(input=layer_fc2,
 y_true = tf.placeholder(tf.float32, shape=[train_batch_size, number_out], name='y_true')
 
 # cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=feature_keypoints, labels=y_true))
-# cost = tf.sqrt(tf.reduce_mean(tf.squared_difference(y_true, layer_fc3)))
-cost = tf.sqrt(tf.losses.mean_squared_error(layer_fc3, y_true))
+cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc3))
+# cost = tf.sqrt(tf.losses.mean_squared_error(layer_fc3, y_true))
+
+# loss function using l2 regularization
+regularizer2 =  tf.nn.l2_loss(fc3_weights)+ tf.nn.l2_loss(fc2_weights) + tf.nn.l2_loss(fc1_weights)
+
+l2_loss = tf.losses.get_regularization_loss()
+
+# cost = tf.reduce_mean(cost + beta*regularizer)
 '''
 cost = tf.losses.mean_squared_error(y_true,
 								    layer_fc1,
@@ -280,7 +298,7 @@ cost = tf.losses.mean_squared_error(y_true,
 								    reduction=Reduction.SUM_BY_NONZERO_WEIGHTS
 								)
 '''
-optimizer = tf.train.AdamOptimizer(learning_rate=0.02).minimize(cost)
+optimizer = tf.train.AdamOptimizer(learning_rate=0.0002).minimize(cost)
 
 saver = tf.train.Saver()
 
@@ -294,24 +312,33 @@ saver.restore(sess, "models/model.ckpt")
 dictionary = csv_file_to_list()
 
 ctr = 0
-
+done = False
 
 def optimize(num_iterations):
 	global total_iterations
 	global ctr
 	start_time = time.time()
+	cost_buffer = []
+	data_pts = random.sample(range(0, 5864), 5864)
 	for i in range(total_iterations, total_iterations + num_iterations):
 		counter = ctr
-		x_batch, y_true_batch, robot_config_, ctr = sample_data(dictionary, counter)
+		
+		x_batch, y_true_batch, robot_config_, ctr, _, data = sample_data(dictionary, counter, data_pts)
+		data_pts = data
+		# print ("ctr ", ctr)
 		feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_}
-		o, fc = sess.run([optimizer, layer_fc3], feed_dict=feed_dict_train)
-		# print (fc, y_true_batch)
+		o, fc, cos = sess.run([optimizer, layer_fc3, cost], feed_dict=feed_dict_train)
+		# print ("fully connected output: ",fc, "true_batch",y_true_batch, "cost", cos)
 		# return 
 		# print status after every 50 iterations
+		cost_buffer.append(cos)
+		if ctr >= 5800:
+			print ("cost this epoch :", sum(cost_buffer)/float(len(cost_buffer)))
+			cost_buffer = []
 		if i % 100 == 0:
 			save_path = saver.save(sess, "models/model.ckpt")
-			cos = sess.run(cost, feed_dict=feed_dict_train)
-			print ("cost :", cos)
+			# cos = sess.run(cost, feed_dict=feed_dict_train)
+			# print ("cost :", cos)
 
 	total_iterations += num_iterations
 
