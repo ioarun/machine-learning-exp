@@ -10,9 +10,11 @@ import csv
 import time
 from random import randint
 
+test = False
+
 data_path = 'data/'
 
-train_batch_size = 64
+train_batch_size = 182
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -145,23 +147,32 @@ def csv_file_to_list():
 	        data[header] = [value]
 	return data
 
+class Util(object):
+	def __init__(self, counter, data_pts, mini_counter):
+		self._counter = counter
+		self._data_pts = data_pts
+		self._mini_counter = mini_counter
 # returns x_batch, y_truth
-def sample_data(dict_, counter, data_pts):
+def sample_data(dict_):
 	done = False
+	# counter = counter_
 	# data_pts = random.sample(range(0, 5864), 5864)
 	
-	if counter >= 5800:
-		counter = 0
+	if (util._counter + (train_batch_size - 1))>= 5800:
+		util._counter = 0
 		done = True
-		data_pts = random.sample(range(0, 5864), 5864)
+		util._mini_counter += 1
+	# if (util._mini_counter > 2):
+		util._data_pts = random.sample(range(0, 5864), 5864)
+		util._mini_counter = 0
 	data_pts_ = []
-	for i in range(counter, counter+train_batch_size):
-		data_pts_.append(data_pts[i])
+	for i in range(util._counter, util._counter+train_batch_size):
+		data_pts_.append(util._data_pts[i])
 	random.shuffle(data_pts_)
-	counter += 63
-	# print (data_pts)
+	util._counter +=( train_batch_size -1 )
+	
 	# random.shuffle(data_pts)
-	# print (counter)	
+		
 	img_arr = []
 	y_arr = []
 	robot_config_arr = []
@@ -184,7 +195,7 @@ def sample_data(dict_, counter, data_pts):
 		y_arr.append(y)
 		robot_config_arr.append(r_config)
 
-	return img_arr, y_arr, robot_config_arr, counter, done, data_pts
+	return img_arr, y_arr, robot_config_arr, util._counter, done, util._data_pts
 
 def plotter(prediction, input_img):
 	list_val =  prediction[0][0]
@@ -216,7 +227,7 @@ robot_config = tf.placeholder(tf.float32, shape=[train_batch_size, number_robot_
 x_image = tf.reshape(x, [-1, img_size, img_size, num_channels])
 
 
-'''
+
 # conv layer 1
 layer_conv1, weights_conv1 = new_conv_layer(input=x_image,
 											num_input_channels=num_channels,
@@ -240,14 +251,34 @@ layer_conv3, weights_conv3 = new_conv_layer(input=layer_conv2,
 											stride=stride3,
 											use_pooling=False)
 
+
+
+# conv layer 4
+layer_conv4, weights_conv4 = new_conv_layer(input=layer_conv3,
+											num_input_channels=num_filters3,
+											filter_size=filter_size3,
+											num_filters=num_filters3,
+											stride=stride3,
+											use_pooling=False)
+
+# conv layer 3
+layer_conv5, weights_conv5 = new_conv_layer(input=layer_conv4,
+											num_input_channels=num_filters3,
+											filter_size=filter_size3,
+											num_filters=num_filters3,
+											stride=stride3,
+											use_pooling=False)
+
+
 '''
 regularizer = tf.contrib.layers.l2_regularizer(scale=0.1)
 
 layer_conv1 = tf.layers.conv2d(x_image, 32, 7, strides=2, padding="same", kernel_regularizer=regularizer)
 layer_conv2 = tf.layers.conv2d(layer_conv1, 32, 5, strides=1, padding="same", kernel_regularizer=regularizer)
 layer_conv3 = tf.layers.conv2d(layer_conv2, 32, 5, strides=1, padding="same", kernel_regularizer=regularizer)
+'''
 # spatial softmax layer
-feature_keypoints = tf.contrib.layers.spatial_softmax(layer_conv3,
+feature_keypoints = tf.contrib.layers.spatial_softmax(layer_conv5,
 											temperature=None,
     										name=None,
     										variables_collections=None,
@@ -284,9 +315,9 @@ cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc3))
 # cost = tf.sqrt(tf.losses.mean_squared_error(layer_fc3, y_true))
 
 # loss function using l2 regularization
-regularizer2 =  tf.nn.l2_loss(fc3_weights)+ tf.nn.l2_loss(fc2_weights) + tf.nn.l2_loss(fc1_weights)
+# regularizer2 =  tf.nn.l2_loss(fc3_weights)+ tf.nn.l2_loss(fc2_weights) + tf.nn.l2_loss(fc1_weights)
 
-l2_loss = tf.losses.get_regularization_loss()
+# l2_loss = tf.losses.get_regularization_loss()
 
 # cost = tf.reduce_mean(cost + beta*regularizer)
 '''
@@ -298,7 +329,7 @@ cost = tf.losses.mean_squared_error(y_true,
 								    reduction=Reduction.SUM_BY_NONZERO_WEIGHTS
 								)
 '''
-optimizer = tf.train.AdamOptimizer(learning_rate=0.0002).minimize(cost)
+optimizer = tf.train.AdamOptimizer(learning_rate=0.00000025).minimize(cost) # cost 0.00016 lr 0.000015
 
 saver = tf.train.Saver()
 
@@ -313,26 +344,29 @@ dictionary = csv_file_to_list()
 
 ctr = 0
 done = False
-
+util = Util(0, random.sample(range(0, 5864), 5864), 0)
 def optimize(num_iterations):
 	global total_iterations
 	global ctr
 	start_time = time.time()
 	cost_buffer = []
-	data_pts = random.sample(range(0, 5864), 5864)
+	# data_pts = random.sample(range(0, 5864), 5864)
+	# util = Util(ctr, data_pts)
 	for i in range(total_iterations, total_iterations + num_iterations):
-		counter = ctr
+		# util._counter = ctr
 		
-		x_batch, y_true_batch, robot_config_, ctr, _, data = sample_data(dictionary, counter, data_pts)
-		data_pts = data
+		x_batch, y_true_batch, robot_config_, ctr, _, data = sample_data(dictionary)
+		# util._data_pts = data
 		# print ("ctr ", ctr)
 		feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_}
 		o, fc, cos = sess.run([optimizer, layer_fc3, cost], feed_dict=feed_dict_train)
-		# print ("fully connected output: ",fc, "true_batch",y_true_batch, "cost", cos)
-		# return 
+		if test:
+			print ("fully connected output: ",fc, "true_batch",y_true_batch, "cost", cos)
+			return 
 		# print status after every 50 iterations
 		cost_buffer.append(cos)
-		if ctr >= 5800:
+		
+		if util._counter > 5611:
 			print ("cost this epoch :", sum(cost_buffer)/float(len(cost_buffer)))
 			cost_buffer = []
 		if i % 100 == 0:
