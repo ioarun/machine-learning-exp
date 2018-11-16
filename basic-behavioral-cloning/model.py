@@ -11,9 +11,9 @@ import csv
 import time
 from random import randint
 
-test = False
+test = True
 data_path = 'data/'
-train_batch_size = 182
+train_batch_size = 1
 total_iterations = 0
 
 # actual image dimension is 800x800
