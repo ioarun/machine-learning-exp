@@ -318,7 +318,7 @@ cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc3))
 # fcc_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='fcc')
 
 # opt1 = tf.train.AdamOptimizer(learning_rate=0.0001)
-optimizer = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(cost)
+optimizer = tf.train.AdamOptimizer(learning_rate=0.00005).minimize(cost)
 # optimizer_spatial = opt1.minimize(cost_spatial, var_list=cnn_vars)
 
 
@@ -327,8 +327,8 @@ saver = tf.train.Saver()
 
 sess = tf.Session()
 
-sess.run(tf.global_variables_initializer())
-# saver.restore(sess, "models/model.ckpt")
+# sess.run(tf.global_variables_initializer())
+saver.restore(sess, "models/model.ckpt")
 
 
 dictionary = csv_file_to_list()
@@ -362,7 +362,7 @@ def optimize(num_iterations):
 		cost_buffer.append(cos)
 		# c_buffer.append(c)
 		if util._counter > 5611:
-			print ("cost this epoch : action cost = ", sum(cost_buffer)/float(len(cost_buffer)), " Spatial Cost = ", sum(c_buffer)/float(len(c_buffer)))
+			print ("cost this epoch : action cost = ", sum(cost_buffer)/float(len(cost_buffer)))
 			
 			# print ("spatial cost :", sum(c_buffer)/float(len(c_buffer)))
 			cost_buffer = []
