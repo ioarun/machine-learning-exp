@@ -30,4 +30,21 @@ def generate_next_actions():
 			eef_pose = limb.joint_angles_to_cartesian_pose(joints)
 			writer.writerow([reader[i][2], reader[i][3], reader[i][4], reader[i][5], reader[i][6], reader[i][7], reader[i][8], eef_pose.position.x, eef_pose.position.y, eef_pose.position.z])
 
-generate_next_actions()
+generate_eef_pose():
+	source_file = open('0.csv', 'rb')
+	reader = csv.reader(source_file)
+
+	dest_file = open('eef.csv', 'w')
+	writer = csv.writer(dest_file)
+	writer.writerow(['right_j0','right_j1','right_j2','right_j3','right_j4','right_j5','right_j6, eef_pose_x, eef_pose_y, eef_pose_z'])
+
+	reader.next()
+	reader = list(reader)
+
+	for i in range(len(reader)-1):
+		joints = {'right_j0':float(reader[i][2]), 'right_j1':float(reader[i][3]), 'right_j2': float(reader[i][4]), 'right_j3': float(reader[i][5]), 'right_j4': float(reader[i][6]), 'right_j5':float(reader[i][7]), 'right_j6':float(reader[i][8])}
+		eef_pose = limb.joint_angles_to_cartesian_pose(joints)
+		writer.writerow([reader[i][2], reader[i][3], reader[i][4], reader[i][5], reader[i][6], reader[i][7], reader[i][8], eef_pose.position.x, eef_pose.position.y, eef_pose.position.z])
+
+# generate_next_actions()
+generate_eef_pose()
