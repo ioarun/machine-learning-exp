@@ -1,4 +1,5 @@
 
+
 import tensorflow as tf
 from PIL import Image
 from numpy import array
@@ -11,9 +12,10 @@ import csv
 import time
 from random import randint
 
-test = True
+
+train = True
 data_path = 'data/'
-train_batch_size = 1
+train_batch_size = 100
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -151,29 +153,31 @@ def csv_file_to_list():
 	return data
 
 class Util(object):
-	def __init__(self, counter, data_pts, mini_counter):
+	def __init__(self, counter, counter_test, mini_counter):
 		self._counter = counter
-		self._data_pts = data_pts
+		self._counter_test = counter_test
 		self._mini_counter = mini_counter
+	def set_data_pts(self, data_pts):
+		self._data_pts = data_pts
 # returns x_batch, y_truth
 def sample_data(dict_):
 	done = False
 	# counter = counter_
 	# data_pts = random.sample(range(0, 5864), 5864)
-	
-	if (util._counter + (train_batch_size - 1))>= 5800:
+	'''
+	if (util._counter + (train_batch_size - 1))>= 4000:
 		util._counter = 0
 		done = True
 		util._mini_counter += 1
 	# if (util._mini_counter > 2):
-		util._data_pts = random.sample(range(0, 5864), 5864)
+		util._data_pts = random.sample(range(0, 4000), 4000)
 		util._mini_counter = 0
+	'''
 	data_pts_ = []
 	for i in range(util._counter, util._counter+train_batch_size):
 		data_pts_.append(util._data_pts[i])
 	random.shuffle(data_pts_)
-	util._counter +=( train_batch_size -1 )
-	
+	util._counter +=( train_batch_size )
 	# random.shuffle(data_pts)
 		
 	img_arr = []
@@ -202,6 +206,55 @@ def sample_data(dict_):
 		cube_true_arr.append(c)
 
 	return img_arr, y_arr, robot_config_arr, cube_true_arr, util._counter, done, util._data_pts
+
+def sample_data_test(dict_):
+	done = False
+	# counter = counter_
+	# data_pts = random.sample(range(0, 5864), 5864)
+	''''
+	if (util._counter_test + (train_batch_size - 1))>= 5864:
+		util._counter_test = 0
+		done = True
+		util._mini_counter += 1
+		util._data_pts = random.sample(range(4000, 5864), 1800)
+		util._mini_counter = 0
+	'''
+	data_pts_ = []
+	for i in range(util._counter_test, util._counter_test+train_batch_size):
+		data_pts_.append(util._data_pts[i])
+	random.shuffle(data_pts_)
+	util._counter_test +=( train_batch_size)
+	
+	# random.shuffle(data_pts)
+		
+	img_arr = []
+	y_arr = []
+	robot_config_arr = []
+	cube_true_arr = []
+	count = 0
+	for pt in data_pts_:
+		if count == 0:
+			# read an image 
+			img = Image.open("data/"+str(pt)+".jpeg")
+			img_arr.append(array(img))
+			y, r_config, c = create_arrays(dict_, pt)
+			y_arr.append(y)
+			robot_config_arr.append(r_config)
+			cube_true_arr.append(c)
+			count = 1
+			continue 
+
+		# read an image 
+		img = Image.open("data/"+str(pt)+".jpeg")
+		img_arr.append(array(img))
+		y, r_config, c = create_arrays(dict_, pt)
+		y_arr.append(y)
+		robot_config_arr.append(r_config)
+		cube_true_arr.append(c)
+
+	return img_arr, y_arr, robot_config_arr, cube_true_arr, util._counter_test, done, util._data_pts
+
+
 
 def plotter(prediction, input_img):
 	list_val =  prediction[0][0]
@@ -335,7 +388,8 @@ dictionary = csv_file_to_list()
 
 ctr = 0
 done = False
-util = Util(0, random.sample(range(0, 5864), 5864), 0)
+util = Util(0, 0, 0)
+# util._data_pts = random.sample(range(0, 4000), 4000)
 def optimize(num_iterations):
 	global total_iterations
 	global ctr
@@ -344,38 +398,42 @@ def optimize(num_iterations):
 	c_buffer = []
 	# data_pts = random.sample(range(0, 5864), 5864)
 	# util = Util(ctr, data_pts)
-	for i in range(total_iterations, total_iterations + num_iterations):
-		# util._counter = ctr
-		
-		x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data(dictionary)
-		# util._data_pts = data
-		# print ("ctr ", ctr)
-		# feed_dict_train_spatial = {x: x_batch, cube_true: cube_true_}
-		# f, c, op = sess.run([feature_keypoints, cost_spatial, optimizer_spatial], feed_dict=feed_dict_train_spatial)
-		feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_}
-		o, fc, cos = sess.run([optimizer, layer_fc3, cost], feed_dict=feed_dict_train)
-		if test:
-			# print ("features :", f, "true :", cube_true_)
-			print ("fully connected output: ",fc, "true_batch",y_true_batch, "cost", cos)
-			return 
-		# print status after every 50 iterations
-		cost_buffer.append(cos)
-		# c_buffer.append(c)
-		if util._counter > 5611:
-			print ("cost this epoch : action cost = ", sum(cost_buffer)/float(len(cost_buffer)))
-			
-			# print ("spatial cost :", sum(c_buffer)/float(len(c_buffer)))
+	if train:
+		for i in range(total_iterations, total_iterations + num_iterations):
+			# util._counter = ctr
+			util._data_pts = random.sample(range(0, 4000), 4000)	
+			for j in range(40): # 40 batches
+				x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data(dictionary)
+				# print ("ctr ", ctr)
+				# feed_dict_train_spatial = {x: x_batch, cube_true: cube_true_}
+				# f, c, op = sess.run([feature_keypoints, cost_spatial, optimizer_spatial], feed_dict=feed_dict_train_spatial)
+				feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_}
+				o, fc, cos = sess.run([optimizer, layer_fc3, cost], feed_dict=feed_dict_train)
+				
+				cost_buffer.append(cos)
+				
+			print ("cost this epoch :", sum(cost_buffer)/float(len(cost_buffer)))
 			cost_buffer = []
-		if i % 100 == 0:
+
+			util._counter = 0
+			# validation follows
+			util._data_pts = random.sample(range(4000, 5864), 1800)
+			for i in range(18): # 18 batches in testing set
+
+				x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data_test(dictionary)
+				feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_}
+				cos = sess.run(cost, feed_dict=feed_dict_train)
+				# print status after every 50 iterations
+				cost_buffer.append(cos)
+			print ("----------------------------------------------------------------> validation cost :", sum(cost_buffer)/float(len(cost_buffer)))
+			cost_buffer = []
+			util._counter_test = 0
 			save_path = saver.save(sess, "models/model.ckpt")
-			# cos = sess.run(cost, feed_dict=feed_dict_train)
-			# print ("cost :", cos)
-
-	total_iterations += num_iterations
-
-	# ending time
-	end_time = time.time()
-	time_diff = end_time - start_time
+	
+	else:
+		x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data(dictionary)
+		## to do 
+		## test code.
 
 
 optimize(500000)
