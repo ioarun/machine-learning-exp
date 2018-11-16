@@ -318,7 +318,7 @@ cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc3))
 # fcc_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='fcc')
 
 # opt1 = tf.train.AdamOptimizer(learning_rate=0.0001)
-optimizer = tf.train.AdamOptimizer(learning_rate=0.00005).minimize(cost)
+optimizer = tf.train.AdamOptimizer(learning_rate=0.00001).minimize(cost)
 # optimizer_spatial = opt1.minimize(cost_spatial, var_list=cnn_vars)
 
 
