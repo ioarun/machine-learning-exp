@@ -1,6 +1,5 @@
-
-
-
+## 5000 training data
+## 5000 validation data
 
 import tensorflow as tf
 from PIL import Image
@@ -15,9 +14,9 @@ import time
 from random import randint
 
 
-train =	False
-data_path = 'data/'
-train_batch_size = 1
+train =	True
+data_path = 'data_1/'
+train_batch_size = 100
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -142,7 +141,7 @@ def create_arrays(dictionary, pt):
 # returns a dictionary from a csv file
 def csv_file_to_list():
 	# open the file in universal line ending mode 
-	with open('data/0.csv', 'rU') as infile:
+	with open('data_1/0.csv', 'rU') as infile:
 	 # read the file as a dictionary for each row ({header : value})
 	  reader = csv.DictReader(infile)
 	  data = {}
@@ -190,7 +189,7 @@ def sample_data(dict_):
 	for pt in data_pts_:
 		if count == 0:
 			# read an image 
-			img = Image.open("data/"+str(pt)+".jpeg")
+			img = Image.open("data_1/"+str(pt)+".jpeg")
 			img_arr.append(array(img))
 			y, r_config, c = create_arrays(dict_, pt)
 			y_arr.append(y)
@@ -200,7 +199,7 @@ def sample_data(dict_):
 			continue 
 
 		# read an image 
-		img = Image.open("data/"+str(pt)+".jpeg")
+		img = Image.open("data_1/"+str(pt)+".jpeg")
 		img_arr.append(array(img))
 		y, r_config, c = create_arrays(dict_, pt)
 		y_arr.append(y)
@@ -237,7 +236,7 @@ def sample_data_test(dict_):
 	for pt in data_pts_:
 		if count == 0:
 			# read an image 
-			img = Image.open("data/"+str(pt)+".jpeg")
+			img = Image.open("data_1/"+str(pt)+".jpeg")
 			img_arr.append(array(img))
 			y, r_config, c = create_arrays(dict_, pt)
 			y_arr.append(y)
@@ -247,7 +246,7 @@ def sample_data_test(dict_):
 			continue 
 
 		# read an image 
-		img = Image.open("data/"+str(pt)+".jpeg")
+		img = Image.open("data_1/"+str(pt)+".jpeg")
 		img_arr.append(array(img))
 		y, r_config, c = create_arrays(dict_, pt)
 		y_arr.append(y)
@@ -386,8 +385,8 @@ saver = tf.train.Saver()
 
 sess = tf.Session()
 
-# sess.run(tf.global_variables_initializer())
-saver.restore(sess, "models/model.ckpt")
+sess.run(tf.global_variables_initializer())
+# saver.restore(sess, "models/model.ckpt")
 
 
 dictionary = csv_file_to_list()
@@ -408,8 +407,8 @@ def optimize(num_iterations):
 		for i in range(total_iterations, total_iterations + num_iterations):
 			# util._counter = ctr
 			util._counter = 0
-			util._data_pts = random.sample(range(500, 4500), 4000)	
-			for j in range(40): # 40 batches
+			util._data_pts = random.sample(range(0, 1000), 1000)	
+			for j in range(5): # 40 batches
 				x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data(dictionary)
 				# print ("ctr ", ctr)
 				# feed_dict_train_spatial = {x: x_batch, cube_true: cube_true_}
@@ -424,8 +423,8 @@ def optimize(num_iterations):
 
 			util._counter = 0
 			# validation follows
-			util._data_pts = random.sample(range(4500, 5500), 1000)
-			for i in range(10): # 18 batches in testing set
+			util._data_pts = random.sample(range(5000, 5500), 500)
+			for i in range(5): # 18 batches in testing set
 
 				x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data_test(dictionary)
 				feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_}
@@ -438,7 +437,7 @@ def optimize(num_iterations):
 			save_path = saver.save(sess, "models/model.ckpt")
 	
 	else:
-		util._data_pts = random.sample(range(3000, 5000), 2000)
+		util._data_pts = random.sample(range(5000, 5500), 1)
 		x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data_test(dictionary)
 		## to do 
 		## test code.
