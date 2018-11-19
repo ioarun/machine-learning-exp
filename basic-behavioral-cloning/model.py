@@ -13,11 +13,11 @@ import random
 import csv
 import time
 from random import randint
-
-train = True
+random.seed(random.randint(0, 100000))
+train = False
 
 data_path = 'data_1/'
-train_batch_size = 100
+train_batch_size = 1
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -36,12 +36,12 @@ stride1 = 2
 # conv 2
 filter_size2 = 5
 num_filters2 = 32
-stride2 = 2
+stride2 = 1
 
 # conv 3
 filter_size3 = 5
 num_filters3 = 32
-stride3 = 2
+stride3 = 1
 
 number_features = 64
 number_robot_config = 3 # eef/gripper pose x, y, z
@@ -376,7 +376,7 @@ y_true = tf.placeholder(tf.float32, shape=[train_batch_size, number_out], name='
 # cost_spatial = tf.reduce_mean(tf.squared_difference(cube_true, feature_keypoints))
 cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc2))
 
-cost = tf.reduce_mean(cost + 0.0005*(tf.nn.l2_loss(weights_conv1) + tf.nn.l2_loss(weights_conv2) + \
+cost = tf.reduce_mean(cost + 0.0001*(tf.nn.l2_loss(weights_conv1) + tf.nn.l2_loss(weights_conv2) + \
 tf.nn.l2_loss(fc1_weights) + tf.nn.l2_loss(fc2_weights)+ tf.nn.l2_loss(weights_conv3))) # + tf.nn.l2_loss(fc4_weights)))
 
 extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -384,7 +384,7 @@ extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 # fcc_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='fcc')
 
 # opt1 = tf.train.AdamOptimizer(learning_rate=0.0001)
-optimizer = tf.train.AdamOptimizer(learning_rate=0.00005).minimize(cost)
+optimizer = tf.train.AdamOptimizer(learning_rate=0.000002).minimize(cost)
 # optimizer_spatial = opt1.minimize(cost_spatial, var_list=cnn_vars)
 
 
