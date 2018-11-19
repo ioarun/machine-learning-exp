@@ -1,6 +1,6 @@
 
-## 5000 training data
-## 5000 validation data
+## 6000 training data
+## 2000 validation data
 
 import tensorflow as tf
 from PIL import Image
@@ -14,10 +14,10 @@ import csv
 import time
 from random import randint
 
-train = False
+train = True
 
 data_path = 'data_1/'
-train_batch_size = 1
+train_batch_size = 100
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -31,21 +31,21 @@ num_channels = 3
 # conv 1
 filter_size1 = 7      # 7x7 filter dimension
 num_filters1 = 32     # 64 filters in layer 1
-stride1 = 1
+stride1 = 2
 
 # conv 2
 filter_size2 = 5
 num_filters2 = 32
-stride2 = 1
+stride2 = 2
 
 # conv 3
 filter_size3 = 5
 num_filters3 = 32
-stride3 = 1
+stride3 = 2
 
 number_features = 64
 number_robot_config = 3 # eef/gripper pose x, y, z
-fc_size = 40
+fc_size = 100
 number_out = 3 # next eef pose x, y, z
 
 beta = 0.01
@@ -91,7 +91,7 @@ def new_conv_layer(input, num_input_channels, filter_size, num_filters, stride, 
 	layer = tf.nn.relu(layer)
 	
 
-	layer = tf.layers.dropout(layer, rate=0.8, training=training)
+	layer = tf.layers.dropout(layer, rate=0.25, training=training)
 	return layer, weights
 
 # flatten layer for fully connected neural net
@@ -122,7 +122,7 @@ def new_fc_layer(input, num_inputs, num_outputs, use_relu=True):
 		layer = tf.layers.batch_normalization(layer, training=training)
 		layer = tf.nn.relu(layer)
 	
-		layer = tf.layers.dropout(layer, rate=0.5, training=training)
+		layer = tf.layers.dropout(layer, rate=0.125, training=training)
 	
 	return layer, weights
 
@@ -351,15 +351,22 @@ layer_fc1, fc1_weights = new_fc_layer(input=features_with_robot_config,
 # fully connected layer 2
 layer_fc2, fc2_weights = new_fc_layer(input=layer_fc1,
 					num_inputs=fc_size,
-					num_outputs=fc_size,
-					use_relu=True)
-
-# fully connected layer 3
-layer_fc3, fc3_weights = new_fc_layer(input=layer_fc2,
-					num_inputs=fc_size,
 					num_outputs=number_out,
 					use_relu=False)
 
+'''
+# fully connected layer 2
+layer_fc3, fc3_weights = new_fc_layer(input=layer_fc2,
+                                        num_inputs=fc_size,
+                                        num_outputs=fc_size,
+                                        use_relu=True)
+
+# fully connected layer 3
+layer_fc4, fc4_weights = new_fc_layer(input=layer_fc3,
+					num_inputs=fc_size,
+					num_outputs=number_out,
+					use_relu=False)
+'''
 
 
 # y_truth
@@ -367,17 +374,17 @@ y_true = tf.placeholder(tf.float32, shape=[train_batch_size, number_out], name='
 # cube_true = tf.placeholder(tf.float32, shape=[train_batch_size, 64], name='cube_true')
 
 # cost_spatial = tf.reduce_mean(tf.squared_difference(cube_true, feature_keypoints))
-cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc3))
+cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc2))
 
-cost =tf.reduce_mean(cost + 0.01*tf.nn.l2_loss(weights_conv1) + 0.01*tf.nn.l2_loss(weights_conv2) + \
-0.01*tf.nn.l2_loss(weights_conv3) + 0.01*tf.nn.l2_loss(fc1_weights) + 0.01*tf.nn.l2_loss(fc2_weights)+ 0.01*tf.nn.l2_loss(fc3_weights))
+cost = tf.reduce_mean(cost + 0.0005*(tf.nn.l2_loss(weights_conv1) + tf.nn.l2_loss(weights_conv2) + \
+tf.nn.l2_loss(fc1_weights) + tf.nn.l2_loss(fc2_weights)+ tf.nn.l2_loss(weights_conv3))) # + tf.nn.l2_loss(fc4_weights)))
 
 extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 # cnn_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='cnn')
 # fcc_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='fcc')
 
 # opt1 = tf.train.AdamOptimizer(learning_rate=0.0001)
-optimizer = tf.train.AdamOptimizer(learning_rate=0.0002).minimize(cost)
+optimizer = tf.train.AdamOptimizer(learning_rate=0.00005).minimize(cost)
 # optimizer_spatial = opt1.minimize(cost_spatial, var_list=cnn_vars)
 
 
@@ -416,7 +423,7 @@ def optimize(num_iterations):
 				# feed_dict_train_spatial = {x: x_batch, cube_true: cube_true_}
 				# f, c, op = sess.run([feature_keypoints, cost_spatial, optimizer_spatial], feed_dict=feed_dict_train_spatial)
 				feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_, training: True}
-				o, fc, cos, extra = sess.run([optimizer, layer_fc3, cost, extra_update_ops], feed_dict=feed_dict_train)
+				o, fc, cos, extra = sess.run([optimizer, layer_fc2, cost, extra_update_ops], feed_dict=feed_dict_train)
 				
 				cost_buffer.append(cos)
 				
@@ -444,7 +451,7 @@ def optimize(num_iterations):
 		## to do 
 		## test code.
 		feed_dict_test = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_, training: False}
-		cos, fc, extra = sess.run([cost,layer_fc3, extra_update_ops], feed_dict=feed_dict_test)
+		cos, fc, extra = sess.run([cost,layer_fc2, extra_update_ops], feed_dict=feed_dict_test)
 		print ("test cost :", cos, "pred :", fc, "truth :", y_true_batch)
 
 
