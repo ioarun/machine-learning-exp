@@ -31,7 +31,7 @@ num_channels = 3
 # conv 1
 filter_size1 = 7      # 7x7 filter dimension
 num_filters1 = 32     # 64 filters in layer 1
-stride1 = 2
+stride1 = 1
 
 # conv 2
 filter_size2 = 5
@@ -91,7 +91,7 @@ def new_conv_layer(input, num_input_channels, filter_size, num_filters, stride, 
 	layer = tf.nn.relu(layer)
 	
 
-	layer = tf.layers.dropout(layer, rate=0.025, training=training)
+	layer = tf.layers.dropout(layer, rate=0.8, training=training)
 	return layer, weights
 
 # flatten layer for fully connected neural net
@@ -122,7 +122,7 @@ def new_fc_layer(input, num_inputs, num_outputs, use_relu=True):
 		layer = tf.layers.batch_normalization(layer, training=training)
 		layer = tf.nn.relu(layer)
 	
-		layer = tf.layers.dropout(layer, rate=0.025, training=training)
+		layer = tf.layers.dropout(layer, rate=0.5, training=training)
 	
 	return layer, weights
 
@@ -369,6 +369,8 @@ y_true = tf.placeholder(tf.float32, shape=[train_batch_size, number_out], name='
 # cost_spatial = tf.reduce_mean(tf.squared_difference(cube_true, feature_keypoints))
 cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc3))
 
+cost =tf.reduce_mean(cost + 0.01*tf.nn.l2_loss(weights_conv1) + 0.01*tf.nn.l2_loss(weights_conv2) + \
+0.01*tf.nn.l2_loss(weights_conv3) + 0.01*tf.nn.l2_loss(fc1_weights) + 0.01*tf.nn.l2_loss(fc2_weights)+ 0.01*tf.nn.l2_loss(fc3_weights))
 
 extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 # cnn_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='cnn')
@@ -408,7 +410,7 @@ def optimize(num_iterations):
 			# util._counter = ctr
 			util._counter = 0
 			util._data_pts = random.sample(range(0, 6000), 6000)	
-			for j in range(30): # 40 batches
+			for j in range(60): # 40 batches
 				x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data(dictionary)
 				# print ("ctr ", ctr)
 				# feed_dict_train_spatial = {x: x_batch, cube_true: cube_true_}
@@ -424,7 +426,7 @@ def optimize(num_iterations):
 			util._counter = 0
 			# validation follows
 			util._data_pts = random.sample(range(6000, 8000), 2000)
-			for i in range(10): # 18 batches in testing set
+			for i in range(20): # 18 batches in testing set
 				validation = True
 				x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data_test(dictionary)
 				feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_, training: False}
