@@ -14,10 +14,10 @@ import csv
 import time
 from random import randint
 random.seed(random.randint(0, 100000))
-train = True
+train = False
 
 data_path = 'data_1/'
-train_batch_size = 200
+train_batch_size = 1
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -91,7 +91,7 @@ def new_conv_layer(input, num_input_channels, filter_size, num_filters, stride, 
 	layer = tf.nn.relu(layer)
 	
 
-	layer = tf.layers.dropout(layer, rate=0.25, training=training)
+	layer = tf.layers.dropout(layer, rate=0.5, training=training)
 	return layer, weights
 
 # flatten layer for fully connected neural net
@@ -105,7 +105,7 @@ def flatten_layer(layer):
 
 	layer_flat = tf.reshape(layer, [-1, num_features])
 
-	layer_flat = tf.layers.dropout(layer_flat, rate=0.125, training=training)
+	# layer_flat = tf.layers.dropout(layer_flat, rate=0.0125, training=training)
 	return layer_flat, num_features
 
 # create fully connected layer
@@ -122,7 +122,7 @@ def new_fc_layer(input, num_inputs, num_outputs, use_relu=True):
 		layer = tf.layers.batch_normalization(layer, training=training)
 		layer = tf.nn.relu(layer)
 	
-		layer = tf.layers.dropout(layer, rate=0.125, training=training)
+		layer = tf.layers.dropout(layer, rate=0.25, training=training)
 	
 	return layer, weights
 
@@ -388,7 +388,7 @@ optimizer = tf.train.AdamOptimizer(learning_rate=0.000001).minimize(cost)
 # optimizer_spatial = opt1.minimize(cost_spatial, var_list=cnn_vars)
 
 
-vaidation = False
+
 saver = tf.train.Saver()
 
 
@@ -444,9 +444,9 @@ def optimize(num_iterations):
 			cost_buffer = []
 			util._counter_test = 0
 			save_path = saver.save(sess, "models/model.ckpt")
-			validation = False
+	
 	else:
-		util._data_pts = random.sample(range(6000, 8000), 1)
+		util._data_pts = random.sample(range(9996, 9997), 1)
 		x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data_test(dictionary)
 		## to do 
 		## test code.
