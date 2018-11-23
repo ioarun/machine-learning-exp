@@ -14,10 +14,10 @@ import csv
 import time
 from random import randint
 random.seed(random.randint(0, 100000))
-train = False
+train = True
 
 data_path = 'data_1/'
-train_batch_size = 1
+train_batch_size = 100
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -73,7 +73,45 @@ def new_conv_layer(input, num_input_channels, filter_size, num_filters, stride, 
 
 	# create new biases
 	biases = new_biases(length=num_filters)
+	# input = tf.layers.batch_normalization(input, training=training)
+	# convolution operation
+	# strides = 1, padding = 1 (to maintain spatial size same as previous layer)
+	layer = tf.nn.conv2d(input=input, filter=weights, strides=[1,stride,stride,1], padding='SAME')
+	# batch normalization
+	# layer = tf.layers.batch_normalization(layer, training=training)
 
+	# batch_mean2, batch_var2 = tf.nn.moments(layer,[0])
+	# layer = tf.nn.batch_normalization(layer,batch_mean2,batch_var2,beta,0.5,1e-3)
+	# add biases to the results of convolution to each filter
+	layer += biases
+
+	if use_pooling:
+		# 2x2 max-pooling
+		layer = tf.nn.max_pool(value=layer, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
+	
+	# batch normalization
+	# layer = tf.layers.batch_normalization(layer, training=training)
+	# ReLU operation, max(x, 0)
+	layer = tf.nn.relu(layer)
+	
+
+	# layer = tf.layers.dropout(layer, rate=0.25, training=training)
+
+	# layer = tf.layers.dropout(layer, rate=0.5, training=training)
+
+	return layer, weights
+
+def new_conv_layer_1(input, num_input_channels, filter_size, num_filters, stride, use_pooling=True):
+
+	# shape of the each filter-weights
+	shape = [filter_size, filter_size, num_input_channels, num_filters]
+
+	# create new weights
+	weights = new_weights(shape=shape)
+	
+	# create new biases
+	biases = new_biases(length=num_filters)
+	# input = tf.layers.batch_normalization(input, training=training)
 	# convolution operation
 	# strides = 1, padding = 1 (to maintain spatial size same as previous layer)
 	layer = tf.nn.conv2d(input=input, filter=weights, strides=[1,stride,stride,1], padding='SAME')
@@ -91,11 +129,9 @@ def new_conv_layer(input, num_input_channels, filter_size, num_filters, stride, 
 	layer = tf.nn.relu(layer)
 	
 
-<<<<<<< HEAD
-	# layer = tf.layers.dropout(layer, rate=0.25, training=training)
-=======
-	layer = tf.layers.dropout(layer, rate=0.5, training=training)
->>>>>>> 04f3d410b7526bc4fc57cc139d0c828487c1cdb1
+
+	# layer = tf.layers.dropout(layer, rate=0.5, training=training)
+
 	return layer, weights
 
 # flatten layer for fully connected neural net
@@ -109,11 +145,7 @@ def flatten_layer(layer):
 
 	layer_flat = tf.reshape(layer, [-1, num_features])
 
-<<<<<<< HEAD
-	# layer_flat = tf.layers.dropout(layer_flat, rate=0.125, training=training)
-=======
-	# layer_flat = tf.layers.dropout(layer_flat, rate=0.0125, training=training)
->>>>>>> 04f3d410b7526bc4fc57cc139d0c828487c1cdb1
+
 	return layer_flat, num_features
 
 # create fully connected layer
@@ -121,7 +153,7 @@ def new_fc_layer(input, num_inputs, num_outputs, use_relu=True):
 	# weights and biases for fc layer
 	weights = new_weights(shape=[num_inputs, num_outputs])
 	biases = new_biases(length=num_outputs)
-
+	# input = tf.layers.batch_normalization(input, training=training)
 	# linear operation
 	layer = tf.matmul(input, weights) + biases
 
@@ -130,11 +162,6 @@ def new_fc_layer(input, num_inputs, num_outputs, use_relu=True):
 		# layer = tf.layers.batch_normalization(layer, training=training)
 		layer = tf.nn.relu(layer)
 	
-<<<<<<< HEAD
-		# layer = tf.layers.dropout(layer, rate=0.125, training=training)
-=======
-		layer = tf.layers.dropout(layer, rate=0.25, training=training)
->>>>>>> 04f3d410b7526bc4fc57cc139d0c828487c1cdb1
 	
 	return layer, weights
 
@@ -151,14 +178,14 @@ def create_arrays(dictionary, pt):
 	r_config = []
 
 	r_config.append(dictionary['eef_pose_x'][pt])
-	r_config.append(dictionary['eef_pose_y'][pt])
+	r_config.append(dictionary['eef_pose_y_edit'][pt])
 	r_config.append(dictionary['eef_pose_z'][pt])
 
 	# for i in range(0, 7):
 	# 	r_config.append(dictionary['right_j'+str(i)][pt])
 		# y.append(dictionary['right_j'+str(i)+'_next'][pt])
 	y.append(dictionary['eef_pose_x_next'][pt])
-	y.append(dictionary['eef_pose_y_next'][pt])
+	y.append(dictionary['eef_pose_y_next_edit'][pt])
 	y.append(dictionary['eef_pose_z_next'][pt])
 
 	return array(y), array(r_config), array(cube_true)
@@ -353,7 +380,6 @@ robot_config = tf.placeholder(tf.float32, shape=[train_batch_size, number_robot_
 x_image = tf.reshape(x, [-1, img_size, img_size, num_channels])
 
 
-
 # conv layer 1
 layer_conv1, weights_conv1 = new_conv_layer(input=x_image,
 										num_input_channels=num_channels,
@@ -370,7 +396,7 @@ layer_conv2, weights_conv2 = new_conv_layer(input=layer_conv1,
 										use_pooling=False)
 
 # conv layer 3
-layer_conv3, weights_conv3 = new_conv_layer(input=layer_conv2,
+layer_conv3, weights_conv3 = new_conv_layer_1(input=layer_conv2,
 										num_input_channels=num_filters3,
 										filter_size=filter_size3,
 										num_filters=num_filters3,
@@ -407,19 +433,7 @@ layer_fc2, fc2_weights = new_fc_layer(input=layer_fc1,
 					num_outputs=number_out,
 					use_relu=False)
 
-'''
-# fully connected layer 2
-layer_fc3, fc3_weights = new_fc_layer(input=layer_fc2,
-                                        num_inputs=fc_size,
-                                        num_outputs=fc_size,
-                                        use_relu=True)
 
-# fully connected layer 3
-layer_fc4, fc4_weights = new_fc_layer(input=layer_fc3,
-					num_inputs=fc_size,
-					num_outputs=number_out,
-					use_relu=False)
-'''
 
 
 # y_truth
@@ -427,8 +441,8 @@ y_true = tf.placeholder(tf.float32, shape=[train_batch_size, number_out], name='
 # cube_true = tf.placeholder(tf.float32, shape=[train_batch_size, 64], name='cube_true')
 
 # cost_spatial = tf.reduce_mean(tf.squared_difference(cube_true, feature_keypoints))
-cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc2))
-
+# cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc2))
+cost = tf.reduce_mean(tf.sqrt(tf.squared_difference(y_true, layer_fc2)))
 # cost = tf.reduce_mean(cost + 0.0001*(tf.nn.l2_loss(weights_conv1) + tf.nn.l2_loss(weights_conv2) + \
 # tf.nn.l2_loss(fc1_weights) + tf.nn.l2_loss(fc2_weights)+ tf.nn.l2_loss(weights_conv3))) # + tf.nn.l2_loss(fc4_weights)))
 
@@ -437,7 +451,7 @@ extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 # fcc_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='fcc')
 
 # opt1 = tf.train.AdamOptimizer(learning_rate=0.0001)
-optimizer = tf.train.AdamOptimizer(learning_rate=0.001).minimize(cost)
+optimizer = tf.train.AdamOptimizer(learning_rate=1e-2).minimize(cost)
 # optimizer_spatial = opt1.minimize(cost_spatial, var_list=cnn_vars)
 
 
@@ -446,9 +460,8 @@ saver = tf.train.Saver()
 
 
 sess = tf.Session()
-
-# sess.run(tf.global_variables_initializer())
-saver.restore(sess, "models/model.ckpt")
+sess.run(tf.global_variables_initializer())
+# saver.restore(sess, "models/model.ckpt")
 
 
 dictionary = csv_file_to_list()
@@ -469,16 +482,16 @@ def optimize(num_iterations):
 		for i in range(total_iterations, total_iterations + num_iterations):
 			# util._counter = ctr
 			util._counter = 0
-			util._data_pts = random.sample(range(0, 30), 30)	
-			for j in range(3): # 40 batches
+			util._data_pts = random.sample(range(0, 6000), 6000)	
+			for j in range(60): # 40 batches
 				
 				x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data(dictionary)
 				# print ("ctr ", ctr)
 				# feed_dict_train_spatial = {x: x_batch, cube_true: cube_true_}
 				# f, c, op = sess.run([feature_keypoints, cost_spatial, optimizer_spatial], feed_dict=feed_dict_train_spatial)
 				feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_, training: True}
-				o, fc, cos, extra = sess.run([optimizer, layer_fc2, cost, extra_update_ops], feed_dict=feed_dict_train)
-				
+				o, fc, fee, cos, extra = sess.run([optimizer, layer_fc2, features_with_robot_config, cost, extra_update_ops], feed_dict=feed_dict_train)
+				print ("fea: ",fee)
 				cost_buffer.append(cos)
 				
 			print ("cost this epoch :", sum(cost_buffer)/float(len(cost_buffer)))
@@ -486,8 +499,8 @@ def optimize(num_iterations):
 
 			util._counter = 0
 			# validation follows
-			util._data_pts = random.sample(range(6000, 6030), 30)
-			for i in range(3): # 18 batches in testing set
+			util._data_pts = random.sample(range(8000, 10000), 2000)
+			for i in range(20): # 18 batches in testing set
 				validation = True
 				x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data_test(dictionary)
 				feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_, training: False}
@@ -500,7 +513,6 @@ def optimize(num_iterations):
 			save_path = saver.save(sess, "models/model.ckpt")
 	
 	else:
-<<<<<<< HEAD
 		for i in range(4, 20):
 			util._data_pts = [i]
 			x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data_test_episode(dictionary)
@@ -513,7 +525,7 @@ def optimize(num_iterations):
 			plotter(fc[0],x_batch[0], i)
 		
 		# plt.show()
-=======
+
 		util._data_pts = random.sample(range(9996, 9997), 1)
 		x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data_test(dictionary)
 		## to do 
@@ -523,6 +535,6 @@ def optimize(num_iterations):
 		print ("test cost :", cos, "pred :", fc, "truth :", y_true_batch)
 
 
->>>>>>> 04f3d410b7526bc4fc57cc139d0c828487c1cdb1
+
 optimize(500000)
 

@@ -1,6 +1,6 @@
 
-## 5000 training data
-## 5000 validation data
+## 6000 training data
+## 2000 validation data
 
 import tensorflow as tf
 from PIL import Image
@@ -13,11 +13,11 @@ import random
 import csv
 import time
 from random import randint
-
-train = True
+random.seed(random.randint(0, 100000))
+train = False
 
 data_path = 'data_1/'
-train_batch_size = 150
+train_batch_size = 1
 total_iterations = 0
 
 # actual image dimension is 800x800
@@ -36,16 +36,16 @@ stride1 = 2
 # conv 2
 filter_size2 = 5
 num_filters2 = 32
-stride2 = 2
+stride2 = 1
 
 # conv 3
 filter_size3 = 5
 num_filters3 = 32
-stride3 = 2
+stride3 = 1
 
 number_features = 64
 number_robot_config = 3 # eef/gripper pose x, y, z
-fc_size = 100
+fc_size = 40
 number_out = 3 # next eef pose x, y, z
 
 beta = 0.01
@@ -86,12 +86,14 @@ def new_conv_layer(input, num_input_channels, filter_size, num_filters, stride, 
 		layer = tf.nn.max_pool(value=layer, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 	
 	# batch normalization
-	layer = tf.layers.batch_normalization(layer, training=training)
+	# layer = tf.layers.batch_normalization(layer, training=training)
 	# ReLU operation, max(x, 0)
 	layer = tf.nn.relu(layer)
 	
 
-	layer = tf.layers.dropout(layer, rate=0.8, training=training)
+
+	# layer = tf.layers.dropout(layer, rate=0.5, training=training)
+
 	return layer, weights
 
 # flatten layer for fully connected neural net
@@ -105,7 +107,7 @@ def flatten_layer(layer):
 
 	layer_flat = tf.reshape(layer, [-1, num_features])
 
-	# layer_flat = tf.layers.dropout(layer_flat, rate=0.75)
+
 	return layer_flat, num_features
 
 # create fully connected layer
@@ -115,30 +117,16 @@ def new_fc_layer(input, num_inputs, num_outputs, use_relu=True):
 	biases = new_biases(length=num_outputs)
 
 	# linear operation
-# fully connected layer 2
-layer_fc2, fc2_weights = new_fc_layer(input=layer_fc1,
-                                        num_inputs=fc_size,
-                                        num_outputs=fc_size,
-                                        use_relu=True)# fully connected layer 2
-layer_fc2, fc2_weights = new_fc_layer(input=layer_fc1,
-                                        num_inputs=fc_size,
-                                        num_outputs=fc_size,
-                                        use_relu=True)# fully connected layer 2
-layer_fc2, fc2_weights = new_fc_layer(input=layer_fc1,
-                                        num_inputs=fc_size,
-                                        num_outputs=fc_size,
-                                        use_relu=True)# fully connected layer 2
-layer_fc2, fc2_weights = new_fc_layer(input=layer_fc1,
-                                        num_inputs=fc_size,
-                                        num_outputs=fc_size,
-                                        use_relu=True)	layer = tf.matmul(input, weights) + biases
+	layer = tf.matmul(input, weights) + biases
 
 	if use_relu:
 		# batch normalization
-		layer = tf.layers.batch_normalization(layer, training=training)
+		# layer = tf.layers.batch_normalization(layer, training=training)
 		layer = tf.nn.relu(layer)
 	
-		layer = tf.layers.dropout(layer, rate=0.5, training=training)
+
+		# layer = tf.layers.dropout(layer, rate=0.25, training=training)
+
 	
 	return layer, weights
 
@@ -155,14 +143,14 @@ def create_arrays(dictionary, pt):
 	r_config = []
 
 	r_config.append(dictionary['eef_pose_x'][pt])
-	r_config.append(dictionary['eef_pose_y'][pt])
+	r_config.append(dictionary['eef_pose_y_edit'][pt])
 	r_config.append(dictionary['eef_pose_z'][pt])
 
 	# for i in range(0, 7):
 	# 	r_config.append(dictionary['right_j'+str(i)][pt])
 		# y.append(dictionary['right_j'+str(i)+'_next'][pt])
 	y.append(dictionary['eef_pose_x_next'][pt])
-	y.append(dictionary['eef_pose_y_next'][pt])
+	y.append(dictionary['eef_pose_y_next_edit'][pt])
 	y.append(dictionary['eef_pose_z_next'][pt])
 
 	return array(y), array(r_config), array(cube_true)
@@ -284,27 +272,68 @@ def sample_data_test(dict_):
 
 	return img_arr, y_arr, robot_config_arr, cube_true_arr, util._counter_test, done, util._data_pts
 
+def sample_data_test_episode(dict_):
+	done = False
+
+	data_pts_ = []
+	data_pts_.append(util._data_pts[0])
+	# random.shuffle(data_pts_)
+	util._counter_test +=( train_batch_size)
+	
+	# random.shuffle(data_pts)
+		
+	img_arr = []
+	y_arr = []
+	robot_config_arr = []
+	cube_true_arr = []
+	count = 0
+	for pt in data_pts_:
+		if count == 0:
+			# read an image 
+			img = Image.open("data_1/"+str(pt)+".jpeg")
+			img_arr.append(array(img))
+			y, r_config, c = create_arrays(dict_, pt)
+			y_arr.append(y)
+			robot_config_arr.append(r_config)
+			cube_true_arr.append(c)
+			count = 1
+			continue 
+
+		# read an image 
+		img = Image.open("data_1/"+str(pt)+".jpeg")
+		img_arr.append(array(img))
+		y, r_config, c = create_arrays(dict_, pt)
+		y_arr.append(y)
+		robot_config_arr.append(r_config)
+		cube_true_arr.append(c)
+
+	return img_arr, y_arr, robot_config_arr, cube_true_arr, util._counter_test, done, util._data_pts
 
 
-def plotter(prediction, input_img):
-	list_val =  prediction[0][0]
+
+
+def plotter(prediction, input_img, index):
+	
+	list_val =  prediction
 	x_s = []
 	y_s = []
-	for i in range(0, len(list_val), 2):
+	for i in range(0, 64, 2):
 		x_s.append(list_val[i])
 		y_s.append(list_val[i+1])
 
 	arr_img = array(input_img)
 	# print x_s, y_s
-	plt.figure(1)
-	plt.subplot(2, 1, 1)
-	plt.imshow(arr_img)
+	# plt.figure(index)
+	# plt.subplot(2, 1, 1)
+	# plt.imshow(arr_img)
 
-	plt.figure(2)
+	plt.figure(index)
 	# plt.subplot(2, 1, 2)
 	plt.plot(y_s, x_s, 'ro')
-	plt.axis([0, 0.9135, 0, 0.9135])
-	plt.show()
+	plt.axis([0.0, 0.9135, 0.0, 0.9135])
+	# plt.show()
+	plt.pause(0.05)
+	plt.savefig('/home/arun/figure_'+str(index)+'.png')
 
 
 
@@ -316,73 +345,62 @@ robot_config = tf.placeholder(tf.float32, shape=[train_batch_size, number_robot_
 x_image = tf.reshape(x, [-1, img_size, img_size, num_channels])
 
 
+with tf.name_scope("softmax"):
 
-# conv layer 1
-layer_conv1, weights_conv1 = new_conv_layer(input=x_image,
-										num_input_channels=num_channels,
-										filter_size=filter_size1,
-										num_filters=num_filters1,
-										stride=stride1,
-										use_pooling=False)
-# conv layer 2
-layer_conv2, weights_conv2 = new_conv_layer(input=layer_conv1,
-										num_input_channels=num_filters2,
-										filter_size=filter_size2,
-										num_filters=num_filters2,
-										stride=stride2,
-										use_pooling=False)
+	# conv layer 1
+	layer_conv1, weights_conv1 = new_conv_layer(input=x_image,
+											num_input_channels=num_channels,
+											filter_size=filter_size1,
+											num_filters=num_filters1,
+											stride=stride1,
+											use_pooling=False)
+	# conv layer 2
+	layer_conv2, weights_conv2 = new_conv_layer(input=layer_conv1,
+											num_input_channels=num_filters2,
+											filter_size=filter_size2,
+											num_filters=num_filters2,
+											stride=stride2,
+											use_pooling=False)
 
-# conv layer 3
-layer_conv3, weights_conv3 = new_conv_layer(input=layer_conv2,
-										num_input_channels=num_filters3,
-										filter_size=filter_size3,
-										num_filters=num_filters3,
-										stride=stride3,
-										use_pooling=False)
-
-
-
-# feature_keypoints, number_features = flatten_layer(layer_conv3)
-
-
-# spatial softmax layer
-feature_keypoints = tf.contrib.layers.spatial_softmax(layer_conv3,
-										temperature=None,
-										name=None,
-										variables_collections=None,
-										trainable=True,
-										data_format='NHWC')
-
-
-features_with_robot_config = tf.concat([feature_keypoints, robot_config], -1)
+	# conv layer 3
+	layer_conv3, weights_conv3 = new_conv_layer(input=layer_conv2,
+											num_input_channels=num_filters3,
+											filter_size=filter_size3,
+											num_filters=num_filters3,
+											stride=stride3,
+											use_pooling=False)
 
 
 
-# fully connected layer 1
-layer_fc1, fc1_weights = new_fc_layer(input=features_with_robot_config,
-					num_inputs=number_features+number_robot_config,
-					num_outputs=fc_size,
-					use_relu=True)
+	# feature_keypoints, number_features = flatten_layer(layer_conv3)
 
-# fully connected layer 2
-layer_fc2, fc2_weights = new_fc_layer(input=layer_fc1,
-					num_inputs=fc_size,
-					num_outputs=number_out,
-					use_relu=False)
 
-'''
-# fully connected layer 2
-layer_fc3, fc3_weights = new_fc_layer(input=layer_fc2,
-                                        num_inputs=fc_size,
-                                        num_outputs=fc_size,
-                                        use_relu=True)
+	# spatial softmax layer
+	feature_keypoints = tf.contrib.layers.spatial_softmax(layer_conv3,
+											temperature=None,
+											name=None,
+											variables_collections=None,
+											trainable=True,
+											data_format='NHWC')
 
-# fully connected layer 3
-layer_fc4, fc4_weights = new_fc_layer(input=layer_fc3,
-					num_inputs=fc_size,
-					num_outputs=number_out,
-					use_relu=False)
-'''
+
+	features_with_robot_config = tf.concat([feature_keypoints, robot_config], -1)
+
+
+
+with tf.name_scope("fcc"):
+
+	# fully connected layer 1
+	layer_fc1, fc1_weights = new_fc_layer(input=features_with_robot_config,
+						num_inputs=number_features+number_robot_config,
+						num_outputs=fc_size,
+						use_relu=True)
+
+	# fully connected layer 2
+	layer_fc2, fc2_weights = new_fc_layer(input=layer_fc1,
+						num_inputs=fc_size,
+						num_outputs=number_out,
+						use_relu=False)
 
 
 # y_truth
@@ -392,26 +410,26 @@ y_true = tf.placeholder(tf.float32, shape=[train_batch_size, number_out], name='
 # cost_spatial = tf.reduce_mean(tf.squared_difference(cube_true, feature_keypoints))
 cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc2))
 
-cost =tf.reduce_mean(cost + 0.0005*(tf.nn.l2_loss(weights_conv1) + tf.nn.l2_loss(weights_conv2) + \
-tf.nn.l2_loss(fc1_weights) + tf.nn.l2_loss(fc2_weights))+ tf.nn.l2_loss(weights_conv3))) # + tf.nn.l2_loss(fc4_weights)))
+# cost = tf.reduce_mean(cost + 0.0001*(tf.nn.l2_loss(weights_conv1) + tf.nn.l2_loss(weights_conv2) + \
+# tf.nn.l2_loss(fc1_weights) + tf.nn.l2_loss(fc2_weights)+ tf.nn.l2_loss(weights_conv3))) # + tf.nn.l2_loss(fc4_weights)))
 
 extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 # cnn_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='cnn')
-# fcc_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='fcc')
+fcc_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='fcc')
 
 # opt1 = tf.train.AdamOptimizer(learning_rate=0.0001)
-optimizer = tf.train.AdamOptimizer(learning_rate=0.001).minimize(cost)
+optimizer = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(cost, var_list=fcc_vars)
 # optimizer_spatial = opt1.minimize(cost_spatial, var_list=cnn_vars)
 
 
-vaidation = False
+
 saver = tf.train.Saver()
 
 
 sess = tf.Session()
 
-sess.run(tf.global_variables_initializer())
-# saver.restore(sess, "models/model.ckpt")
+# sess.run(tf.global_variables_initializer())
+saver.restore(sess, "models/model.ckpt")
 
 
 dictionary = csv_file_to_list()
@@ -433,14 +451,15 @@ def optimize(num_iterations):
 			# util._counter = ctr
 			util._counter = 0
 			util._data_pts = random.sample(range(0, 6000), 6000)	
-			for j in range(40): # 40 batches
-				x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data(dictionary)
-				# print ("ctr ", ctr)
-				# feed_dict_train_spatial = {x: x_batch, cube_true: cube_true_}
-				# f, c, op = sess.run([feature_keypoints, cost_spatial, optimizer_spatial], feed_dict=feed_dict_train_spatial)
-				feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_, training: True}
-				o, fc, cos, extra = sess.run([optimizer, layer_fc2, cost, extra_update_ops], feed_dict=feed_dict_train)
+			for j in range(60): # 40 batches
 				
+				x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data(dictionary)
+				feed_dict_train_sfmx = {x: x_batch, robot_config: robot_config_, training: False}
+				features_with_robot_config_ = sess.run(features_with_robot_config, feed_dict=feed_dict_train_sfmx)
+
+				feed_dict_train = {features_with_robot_config: features_with_robot_config_, y_true: y_true_batch, training: True}
+				o, cos, extra = sess.run([optimizer,cost,extra_update_ops], feed_dict=feed_dict_train)
+	
 				cost_buffer.append(cos)
 				
 			print ("cost this epoch :", sum(cost_buffer)/float(len(cost_buffer)))
@@ -448,28 +467,48 @@ def optimize(num_iterations):
 
 			util._counter = 0
 			# validation follows
-			util._data_pts = random.sample(range(6000, 8000), 1800)
-			for i in range(12): # 18 batches in testing set
-				validation = True
+			util._data_pts = random.sample(range(6000, 8000), 2000)
+			for i in range(20): # 18 batches in testing set
 				x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data_test(dictionary)
-				feed_dict_train = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_, training: False}
-				cos, extra = sess.run([cost,extra_update_ops], feed_dict=feed_dict_train)
-				# print status after every 50 iterations
+				feed_dict_train_sfmx = {x: x_batch, robot_config: robot_config_, training: False}
+				features_with_robot_config_ = sess.run(features_with_robot_config, feed_dict=feed_dict_train_sfmx)
+				feed_dict_train = {features_with_robot_config: features_with_robot_config_, y_true: y_true_batch, training: True}
+				o, cos, extra = sess.run([optimizer,cost,extra_update_ops], feed_dict=feed_dict_train)
+			# print status after every 50 iterations
 				cost_buffer.append(cos)
 			print ("----------------------------------------------------------------> validation cost :", sum(cost_buffer)/float(len(cost_buffer)))
 			cost_buffer = []
 			util._counter_test = 0
 			save_path = saver.save(sess, "models/model.ckpt")
-			validation = False
+	
 	else:
-		util._data_pts = random.sample(range(6000, 8000), 1)
+		'''
+		for i in range(0, 10):
+			util._data_pts = [i]
+			x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data_test_episode(dictionary)
+			## to do 
+			## test code.
+			feed_dict_test = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_, training: False}
+			cos, fc, pred,  extra = sess.run([cost,feature_keypoints, layer_fc2, extra_update_ops], feed_dict=feed_dict_test)
+			print ("test cost :", cos, "pred :", pred, "truth :", y_true_batch)
+
+			plotter(fc[0],x_batch[0], i)
+		'''
+		# plt.show()
+
+		util._data_pts = random.sample(range(8000, 10000), 1)
 		x_batch, y_true_batch, robot_config_, cube_true_, ctr, _, data = sample_data_test(dictionary)
-		## to do 
-		## test code.
-		feed_dict_test = {x: x_batch, y_true: y_true_batch, robot_config: robot_config_, training: False}
-		cos, fc, extra = sess.run([cost,layer_fc3, extra_update_ops], feed_dict=feed_dict_test)
+		# ## to do 
+		# ## test code.
+		feed_dict_train_sfmx = {x: x_batch, robot_config: robot_config_, training: False}
+		features_with_robot_config_ = sess.run(features_with_robot_config, feed_dict=feed_dict_train_sfmx)
+		feed_dict_test = {features_with_robot_config: features_with_robot_config_, y_true: y_true_batch,training: False}
+                              
+		cos, fc, extra = sess.run([cost,layer_fc2, extra_update_ops], feed_dict=feed_dict_test)
 		print ("test cost :", cos, "pred :", fc, "truth :", y_true_batch)
 
 
+
 optimize(500000)
+
 
