@@ -345,7 +345,7 @@ robot_config = tf.placeholder(tf.float32, shape=[train_batch_size, number_robot_
 x_image = tf.reshape(x, [-1, img_size, img_size, num_channels])
 
 
-with tf.name_scope("softmax"):
+with tf.name_scope("cnn"):
 
 	# conv layer 1
 	layer_conv1, weights_conv1 = new_conv_layer(input=x_image,
@@ -370,7 +370,7 @@ with tf.name_scope("softmax"):
 											stride=stride3,
 											use_pooling=False)
 
-
+with tf.name_scope("softmax"):
 
 	# feature_keypoints, number_features = flatten_layer(layer_conv3)
 
@@ -414,9 +414,10 @@ cost = tf.reduce_mean(tf.squared_difference(y_true, layer_fc2))
 # tf.nn.l2_loss(fc1_weights) + tf.nn.l2_loss(fc2_weights)+ tf.nn.l2_loss(weights_conv3))) # + tf.nn.l2_loss(fc4_weights)))
 
 extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-# cnn_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='cnn')
+cnn_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='cnn')
+softmax_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='softmax')
 fcc_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='fcc')
-
+print cnn_vars, softmax_vars, fcc_vars
 # opt1 = tf.train.AdamOptimizer(learning_rate=0.0001)
 optimizer = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(cost, var_list=fcc_vars)
 # optimizer_spatial = opt1.minimize(cost_spatial, var_list=cnn_vars)
@@ -428,8 +429,8 @@ saver = tf.train.Saver()
 
 sess = tf.Session()
 
-# sess.run(tf.global_variables_initializer())
-saver.restore(sess, "models/model.ckpt")
+sess.run(tf.global_variables_initializer())
+# saver.restore(sess, "models/model.ckpt")
 
 
 dictionary = csv_file_to_list()

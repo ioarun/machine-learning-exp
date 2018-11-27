@@ -247,7 +247,7 @@ layer_fc2 = new_fc_layer(input=layer_fc1,
 layer_fc3 = new_fc_layer(input=layer_fc2,
 						num_inputs=fc_size,
 						num_outputs=number_out,
-						use_relu=True)
+						use_relu=False)
 
 
 # y_truth
